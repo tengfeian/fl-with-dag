@@ -1,18 +1,17 @@
-import torch
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor, Normalize, Compose
-from datasets import load_dataset
-
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import IidPartitioner, DirichletPartitioner
 
-def split_dataset(dataset_name, partition_type, num_clients, dirichlet_alpha):
+def split_dataset(dataset_name, partition_type, num_clients, dirichlet_alpha, seed):
     partioners = {"iid": IidPartitioner(num_partitions=num_clients),
                   "dirichlet": DirichletPartitioner(
                         num_partitions=num_clients,
                         partition_by="label",
                         alpha=dirichlet_alpha,
                         min_partition_size=0,
+                        shuffle=True,
+                        seed=seed
                         ),
                 }
     partitioner = partioners[partition_type]
@@ -47,6 +46,7 @@ def get_transforms(dataset_name):
 
     return apply_transforms
 
+# partition_id equals to the node_id in clients
 def get_trainloaders(fds, partition_id, dataset_name, batch_size):
     partition = fds.load_partition(partition_id)
     # Divide data on each node: 80% train, 20% test

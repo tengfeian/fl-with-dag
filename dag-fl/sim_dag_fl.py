@@ -1,34 +1,11 @@
-import copy
-import random
-
 from datafactory import get_trainloaders, get_testloader
 from learning import train, test, get_optimizer
 from dag_fl_alg import *
 from aggregation import *
-
-# def models_equal(model1, model2):
-#     return all(torch.equal(p1, p2) for p1, p2 in zip(model1.parameters(), model2.parameters()))
-
-
-# Function to check if parameters are identical
-def models_equal(model_a, model_b):
-    state_a = model_a.state_dict()
-    state_b = model_b.state_dict()
-
-    # Ensure same keys
-    if set(state_a.keys()) != set(state_b.keys()):
-        return False
-
-    # Compare each tensor
-    for key in state_a:
-        if not torch.equal(state_a[key], state_b[key]):
-            print(f"Mismatch in parameter: {key}")  # Optional: for debugging
-            return False
-
-    return True
+from utils import record_dag_info
 
 # Exp 4. DAG-FL alg.
-def run_dag_fl(fds, initial_net, dataset_name, batch_size, epochs, local_epochs, num_clients, device, tips_all_rounds):
+def run_dag_fl(fds, initial_net, dataset_name, batch_size, epochs, local_epochs, num_clients, device, tipnodes_all_rounds, seed):
     # Initialize DAG, lineage, GS tables
     dag, lineage_cache, gs_cache = {},{},{}
     # Set initial model net into dag, lineage_cache, gs_cache
@@ -37,81 +14,118 @@ def run_dag_fl(fds, initial_net, dataset_name, batch_size, epochs, local_epochs,
     update_lineage_cache(genesis_model_id, {}, lineage_cache)
     update_gs_cache(genesis_model_id, 0, gs_cache)
 
-    tips_nets, incoming_tips_nets,  tips_optim = {},{},{}
-    tip_node_model_id, incoming_tip_node_model_id = {},{}
-    for partition_id in range(num_clients):
-        tips_nets[partition_id] =  copy.deepcopy(initial_net)
-        incoming_tips_nets[partition_id] =  copy.deepcopy(initial_net)
-        # tips_optim[partition_id] = get_optimizer(initial_net) # bug has been fixed
-        # tips_optim[partition_id] = get_optimizer(tips_nets[partition_id])
+    """
+    Data structure:
+        node_nets: format {node_id: net}, records the latest model each node holds before new tips coming.
+        incoming_node_nets: format {node_id: net}, records the latest model each node holds during the coming of new tips when node net may be replaced by new one.
+        node_model_id: format {node_id: model_id}, records the latest model id each node holds before new tips coming.
+        incoming_node_model_id: format {node_id: net},  records the latest model id each node holds during the coming of new tips when node net may be replaced by new one.
+        model_birth: format {model_id: int}, records the birth epoch of model in each epoch, for analysis
+        model_presence: format {model_id: int}, records the presence of model_id in each epoch, for analysis
+        tip_nets: format {model_id: net}, records the tips' model_id and net in current epoch.
+        model_references: format {model_id: net}, records all reference models for all models at their birth time, note that this new model may be still in computing and does not present in the DAG until the epoch its node is selected by "tipnodes_current_round".
+    Update DAG logics:
+        Update DAG and GS cache occurs at the beginning of each epoch, i.e. the time presence of model in DAG.
+        Update lineage cache occurs at the birth of new model.
+    """
+    node_nets, incoming_node_nets = {},{}
+    model_birth, model_presence, tip_nets = {},{},{}
+    node_model_id, incoming_node_model_id = {},{}
+    model_references = {}
+    invalide_tips = set()
+    # new_model_nets = {}
+
+    for node_id in range(num_clients):
+        incoming_node_nets[node_id] =  copy.deepcopy(initial_net)
+        # tips_optim[node_id] = get_optimizer(initial_net) # bug has been fixed in below
+        # tips_optim[node_id] = get_optimizer(node_nets[node_id])
     testloader = get_testloader(fds, dataset_name, batch_size)
 
     clients_list = list(range(num_clients))
     loss_list, accuracy_list = [],[]
     model_id = genesis_model_id
-    selected_tips, ref_model_ids = [], []
+    selected_tips = []
     for e in range(epochs):
+        # todo delete
         print(f"[DAG-FL alg.] Training epoch {e} ...")
-        tips_current_round = tips_all_rounds[e]
-        for partition_id in tips_current_round:
-            # net = None
+        tipnodes_current_round = tipnodes_all_rounds[e]
+
+        # todo delete
+        print(f"tipnodes_current_round:{tipnodes_current_round}")
+
+        if e > 0:
+            for node_id in tipnodes_current_round:
+                m_id = node_model_id[node_id]
+                if e == 1:  # All tips following the genesis model point only to genesis model
+                    ref_model_ids = [genesis_model_id]
+                elif e>1:
+                    ref_model_ids = model_references[m_id]
+                # Update DAG, this time represents when the model of previous epoch show up in DAG
+                update_dag(m_id, ref_model_ids, dag)
+                # Update lineage
+                print(f"lineage_cache:{lineage_cache}")
+                print(f"m_id:{m_id}")
+                lineage = compute_lineage(m_id, node_id, dag, lineage_cache)
+                update_lineage_cache(m_id, lineage, lineage_cache)
+                # Update GS
+                lineage = lineage_cache[m_id]
+                gs = compute_generalization_score(lineage, e, tipnodes_all_rounds)
+                update_gs_cache(m_id, gs, gs_cache)
+                # Set up model_id and nets for tips in this epoch
+                net_ = node_nets[node_id]
+                tip_nets[m_id] = net_
+                # Set up the presence time of models
+                model_presence[m_id] = e
+
+        for node_id in tipnodes_current_round:
             if e == 0:
-                # net = tips_nets[partition_id]
-                net = incoming_tips_nets[partition_id]
-            else: # Select tips, aggregate, and train
-                print(
-                    f"[run_dag_fl][select tips] partition_id: {partition_id}, tips_current_round: {tips_current_round},  ")
-                selected_tips = select_tips(tips_current_round, partition_id, lineage_cache, dag, tip_node_model_id)
-                model_list = [incoming_tips_nets[t] for t in selected_tips]
+                net = incoming_node_nets[node_id]
+            else: # Select tips and aggregate them, and train it
+                # todo delete
+                print(f"[run_dag_fl][select tips] node_id: {node_id}, tipnodes_current_round: {tipnodes_current_round},  ")
+                selected_tips = select_tips(tip_nets, node_id, lineage_cache, dag, e, tipnodes_all_rounds)
+                model_list = [tip_nets[t] for t in selected_tips]
                 net = fedAvg(model_list)
             net = net.to(device)
             optim = get_optimizer(net)
-            # optim = tips_optim[partition_id]
-            trainloader = get_trainloaders(fds, partition_id, dataset_name, batch_size)
+            trainloader = get_trainloaders(fds, node_id, dataset_name, batch_size)
             train(net, trainloader, optim, local_epochs, device)
 
             model_id += 1
-            # Update the latest model id for the node
-            incoming_tip_node_model_id[partition_id] = model_id
-            # Update DAG
-            if e ==0 : # All tips following genesis model point only to genesis model
-                update_dag(model_id, [genesis_model_id], dag)
-            else:
-                ref_model_ids = [tip_node_model_id[t] for t in selected_tips]
-                update_dag(model_id, ref_model_ids, dag)
-            # Update lineage
-            node_id = partition_id
-            print(f"[run_dag_fl][complete one tip training] model_id: {model_id}, node_id: {node_id}, selected_tips:{selected_tips}, ref_model_ids:{ref_model_ids}  ")
-            lineage = compute_lineage(model_id, node_id, dag, lineage_cache)
-            update_lineage_cache(model_id, lineage, lineage_cache)
-            # Update GS
-            gs = compute_generalization_score(lineage,1)
-            update_gs_cache(model_id, gs, gs_cache)
+            # Update the latest model id and models for the nodes and tips
+            incoming_node_model_id[node_id] = model_id
+            incoming_node_nets[node_id] = net
+            invalide_tips.update(selected_tips)
+            # new_model_nets[model_id] = net
+            model_birth[model_id] = e
+            model_references[model_id] = selected_tips
 
-        # Update tips
-        # todo delete
-        for k in tips_nets.keys():
-            equal = models_equal(tips_nets[k].to(device), incoming_tips_nets[k])
-            # equal = models_equal(initial_net.to(device), incoming_tips_nets[k])
-            print(f"###### e/1: {e}, k:{k} models are equals? "+ str(equal))
+            # todo delete
+            print(f"[run_dag_fl][complete one tip training] model_id: {model_id}, node_id: {node_id}, selected_tips:{selected_tips}, ref_model_ids:{model_references[model_id]}  ")
 
-        tips_nets = copy.deepcopy(incoming_tips_nets)
-        print(f"[run_dag_fl][Complete ALL tips trainings] tip_node_model_id: {tip_node_model_id}, incoming_tip_node_model_id: {incoming_tip_node_model_id}")
-        tip_node_model_id = copy.deepcopy(incoming_tip_node_model_id)
+        # Update current node-net-model_id information after one global epoch
+        node_nets = copy.deepcopy(incoming_node_nets)
+        print(f"[run_dag_fl][Complete ALL tips trainings] node_model_id: {node_model_id}, incoming_node_model_id: {incoming_node_model_id}")
+        node_model_id = copy.deepcopy(incoming_node_model_id)
+        # for t in new_model_nets.keys():
+        #     model_birth[t] = e
+        #     potential_tip_nets[t] = new_model_nets[t]
+        for t in invalide_tips:
+            # del model_birth[t]
+            del tip_nets[t]
+        invalide_tips.clear()
+        # new_model_nets.clear()
 
-        # todo delete
-        for k in tips_nets.keys():
-            equal = models_equal(tips_nets[k], incoming_tips_nets[k])
-            # equal = models_equal(initial_net.to(device), incoming_tips_nets[k])
-            print(f"###### e/2: {e}, k:{k} models are equals? "+ str(equal))
+        # Evaluate model on the test set
+        model_list = [node_nets[t] for t in clients_list]
+        global_net = fedAvg(model_list)
 
-        # evaluate model on the test set
-        model_list = [tips_nets[t] for t in clients_list]
-        net = fedAvg(model_list)
-        loss, accuracy = test(net, testloader, device)
+        loss, accuracy = test(global_net, testloader, device)
         loss_list.append(loss)
         accuracy_list.append(accuracy)
         print(f"[DAG-FL alg.] accuracy list: {accuracy_list}")
+
+    record_dag_info(dag, lineage_cache, gs_cache, seed, model_presence, model_birth, "DAG-FL with GS")
 
     return loss_list, accuracy_list
 

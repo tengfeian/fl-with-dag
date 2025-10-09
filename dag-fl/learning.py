@@ -49,7 +49,6 @@ def test(net, testloader, device):
             correct += (predicted == labels).sum().item()
     losses = loss / len(testloader)
     accuracy = correct / len(testloader.dataset)
-    # print("[test] len(testloader.dataset)", len(testloader.dataset))
     return losses, accuracy
 
 def get_weights(net):

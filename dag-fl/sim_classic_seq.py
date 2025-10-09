@@ -5,7 +5,6 @@ from learning import train, test, get_optimizer
 
 # Exp 1. Classic fully centralized sequential training
 def run_classic_sequential(fds, initial_net, dataset_name, batch_size, epochs, local_epochs, num_clients, device):
-    # net = get_net(net_name)
     net = copy.deepcopy(initial_net)
     net.to(device)
     testloader = get_testloader(fds, dataset_name, batch_size)
