@@ -15,7 +15,7 @@ def run_traditional_fl(fds, initial_net, dataset_name, batch_size, epochs, local
         client_nets[partition_id] =  copy.deepcopy(initial_net).to(device)
     testloader = get_testloader(fds, dataset_name, batch_size)
 
-    clients_list = list(range(num_clients))
+    # clients_list = list(range(num_clients))
     loss_list, accuracy_list = [],[]
     for e in range(epochs):
         if not nodes_for_aggregation_all_rounds:

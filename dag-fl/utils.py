@@ -10,56 +10,58 @@ def write_logs(logfile, loss_list,accuracy_list, sim_name):
         file.write(",".join(str(v) for v in loss_list))
         file.write('\n')
 
-def record_tips_info(file, rand_num_tips_all_rounds, new_tips_all_rounds, seed):
+def record_tips_info(file, rand_num_tips_all_rounds, all_round_to_clients, seed):
     with open(file, mode="a") as file:
         file.write("rand_num_tips_all_rounds with seed of "+str(seed) + ':\n')
         json.dump(rand_num_tips_all_rounds, file, indent=4)
         file.write('\n')
-        file.write("tips_all_rounds with seed of " + str(seed) + ':\n')
-        json.dump(new_tips_all_rounds, file, indent=4)
+        file.write("all_round_to_clients with seed of " + str(seed) + ':\n')
+        json.dump(all_round_to_clients, file, indent=4)
         file.write('\n')
 
-# def record_tips_info(file, rand_num_tips_all_rounds, new_tips_all_rounds, seed):
-#     with open(file, mode="a") as file:
-#         file.write("rand_num_tips_all_rounds with seed of "+str(seed) + ':\n')
-#         file.write(",".join(str(v) for v in rand_num_tips_all_rounds))
-#         file.write('\n')
-#
-#         file.write("tips_all_rounds with seed of "+str(seed) + ':\n')
-#         for tips in new_tips_all_rounds:
-#             file.write('[')
-#             file.write(",".join(str(v) for v in tips))
-#             file.write(']\n')
-
-def record_dag_info(dag, lineage_cache, gs_cache, seed, model_presence, model_birth, sim_name):
-    with open("DAG.json", mode="a") as file:
-        file.write("["+sim_name+"] DAG with seed of "+str(seed) + ':\n')
-        json.dump(dag, file, indent=4)
+def record_dag_info(dag, sim,label):
+    with open(sim+"DAG_node_id_to_ref_ids.json", mode="a") as file:
+        file.write(label + ':\n')
+        json.dump(dag.node_id_to_ref_ids, file, indent=4)
         file.write('\n')
-    if len(lineage_cache) > 0:
-        with open("lineage_cache.json", mode="a") as file:
-            file.write("["+sim_name+"] lineage_cache with seed of " + str(seed) + ':\n')
-            json.dump(lineage_cache, file, indent=4)
-            file.write('\n')
-    if len(gs_cache) > 0:
-        with open("GS_cache.json", mode="a") as file:
-            file.write("["+sim_name+"] GS_cache with seed of " + str(seed) + ':\n')
-            json.dump(gs_cache, file, indent=4)
-            file.write('\n')
-    with open("model_birth.json", mode="a") as file:
-        file.write("["+sim_name+"] model_birth with seed of " + str(seed) + ':\n')
-        json.dump(model_birth, file, indent=4)
-        file.write('\n')
-    with open("model_presence.json", mode="a") as file:
-        file.write("["+sim_name+"] model_presence with seed of " + str(seed) + ':\n')
-        json.dump(model_presence, file, indent=4)
+    with open(sim+"DAG_round_to_tip_gs.json", mode="a") as file:
+        file.write(label + ':\n')
+        json.dump(dag.round_to_tip_gs, file, indent=4)
         file.write('\n')
 
+    round_to_tip_ids = {}
+    for r,tips in dag.round_to_tips.items():
+        round_to_tip_ids[r] = [t.id for t in tips]
+    with open(sim+"DAG_round_to_tips.json", mode="a") as file:
+        file.write(label + ':\n')
+        json.dump(round_to_tip_ids, file, indent=4)
+        file.write('\n')
 
-# def record_partition_metadata(metadata, dataset_name, seed):
-#     with open("dataset_partitions.json", "a") as file:
-#         file.write("split "+dataset_name+" with seed of "+str(seed)+ '\n')
-#         json.dump(metadata, file)
+    lineages = {}
+    gs_all = {}
+    cs_all = {}
+    node_creation_appearance = {}
+    for node_id, node in dag.node_id_to_node.items():
+        lineages[node_id] = node.lineage
+        gs_all[node_id] = node.gs
+        cs_all[node_id] = node.cs
+        node_creation_appearance[node_id] = [node.creation_time,node.appearance_time]
+    with open(sim+"model_lineages.json", mode="a") as file:
+        file.write(label + ':\n')
+        json.dump(lineages, file, indent=4)
+        file.write('\n')
+    with open(sim+"model_gs.json", mode="a") as file:
+        file.write(label + ':\n')
+        json.dump(gs_all, file, indent=4)
+        file.write('\n')
+    with open(sim+"model_cs.json", mode="a") as file:
+        file.write(label + ':\n')
+        json.dump(cs_all, file, indent=4)
+        file.write('\n')
+    with open(sim+"model_creation_appearance_time.json", mode="a") as file:
+        file.write(label + ':\n')
+        json.dump(node_creation_appearance, file, indent=4)
+        file.write('\n')
 
 # Function to check if parameters are identical
 def models_equal(model_a, model_b):

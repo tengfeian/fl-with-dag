@@ -4,7 +4,7 @@ from learning import train, test, get_optimizer
 
 
 # Exp 1. Classic fully centralized sequential training
-def run_classic_sequential(fds, initial_net, dataset_name, batch_size, epochs, local_epochs, num_clients, device):
+def run_classic_sequential(fds, initial_net, dataset_name, batch_size, rounds, local_epochs, num_clients, device, all_round_to_clients):
     net = copy.deepcopy(initial_net)
     net.to(device)
     testloader = get_testloader(fds, dataset_name, batch_size)
@@ -12,11 +12,13 @@ def run_classic_sequential(fds, initial_net, dataset_name, batch_size, epochs, l
     optim = get_optimizer(net)
 
     loss_list, accuracy_list = [],[]
-    for e in range(epochs):
-        print(f"[Classic fully centralized sequential training] Training epoch {e} ...")
+    for round in range(rounds):
+        print(f"[Classic fully centralized sequential training] Training epoch {round} ...")
         for partition_id in range(num_clients):
-            trainloader = get_trainloaders(fds, partition_id, dataset_name, batch_size)
-            train(net, trainloader, optim, local_epochs, device)
+            cur_round_clients = all_round_to_clients[round]
+            if partition_id in cur_round_clients:
+                trainloader = get_trainloaders(fds, partition_id, dataset_name, batch_size)
+                train(net, trainloader, optim, local_epochs, device)
         # evaluate model on the test set
         loss, accuracy = test(net, testloader, device)
         loss_list.append(loss)

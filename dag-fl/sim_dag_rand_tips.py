@@ -10,7 +10,7 @@ from client import Client
 from DAGNode import DAGNode
 
 # Exp 4. DAG-FL alg.
-def run_dag_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, device, all_round_to_clients, label):
+def run_dag_rand_tips(fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, device, all_round_to_clients, label):
     # Initialize DAG, lineage, GS tables
     dag = DAG()
     genesis_net = copy.deepcopy(initial_net)
@@ -38,7 +38,8 @@ def run_dag_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epo
     global_node_nb = 0 # global node number for DAG
     for round in range(rounds):
         # todo delete
-        print(f"[DAG-FL alg.] Training round {round} ...")
+        print(f"[DAG Rand Tips alg.] Training round {round} ...")
+
         client_ids_current_round = all_round_to_clients[round]
         observed_num_clients = get_num_clients_observed(round, all_round_to_clients)
 
@@ -58,7 +59,7 @@ def run_dag_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epo
         # Clients train local model
         for c_id in client_ids_current_round:
             c = clients[c_id]
-            virtual_final_gs = 0 # to compute choice score
+            # virtual_final_gs = 0 # to compute choice score
             if round == 0:
                 selected_tips = [dag.genesis]
             if round > 0:
@@ -68,7 +69,10 @@ def run_dag_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epo
                 #     t_ids.append(t.id)
                 # print(f"round:{round}, c_id: {c_id},tips: {t_ids}, client_ids_current_round:{client_ids_current_round}")
 
-                selected_tips, virtual_final_gs = select_tips(tips, c_id, dag.genesis, round, observed_num_clients)
+                # todo hard-coded, randomly select 2 tips
+                selected_tips = random.sample(tips, 2)
+                # selected_tips, virtual_final_gs = select_tips(tips, c_id, dag.genesis, round, observed_num_clients)
+
                 c.update_local_model(selected_tips)
             c.local_train()
 
@@ -81,9 +85,10 @@ def run_dag_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epo
             node = DAGNode(global_node_nb, model, c_id, round, ref_nodes)
             # node = DAGNode(global_node_nb, model, c_id, round, ref_nodes, tips)
             # Compute Choice Score for this DAGNode, for round=0, do not compute cs because there is no meaning.
-            if round > 0:
-                node.set_cs(virtual_final_gs)
+            # if round > 0:
+                # node.set_cs(virtual_final_gs)
             c.dag_node = node
+
 
         # Evaluate model on the test set
         if round > 0:
@@ -93,9 +98,10 @@ def run_dag_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epo
             loss, accuracy = test(global_model, testloader, device)
             loss_list.append(loss)
             accuracy_list.append(accuracy)
-            print(f"[DAG-FL alg.] accuracy list: {accuracy_list}")
+            print(f"[DAG Rand Tips alg.] accuracy list: {accuracy_list}")
 
-    record_dag_info(dag, "dagGS_", label)
+
+    record_dag_info(dag, "dagRandTips_", label)
     return loss_list, accuracy_list
 
 def get_num_clients_observed(round,all_round_to_clients):
