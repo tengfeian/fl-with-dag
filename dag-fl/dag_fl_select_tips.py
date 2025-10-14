@@ -2,8 +2,8 @@ import copy
 import random
 from DAGNode import DAGNode
 
-# Tips refer to the model id
-# todo: some very old tips should be excluded from selection
+# Tips refer to the DAGNode
+# todo: to consider to exclude some very old tips from selection
 # def select_tips(tip_nets, node_id, lineage_cache, dag, epoch, tipnodes_all_rounds):
 def select_tips(tips, client_id, genesis, round, observed_num_clients):
     # # todo delete
@@ -48,3 +48,12 @@ def select_tips(tips, client_id, genesis, round, observed_num_clients):
             selected_tips.remove(tip)
 
     return selected_tips, max_virtual_final_gs
+
+def select_tips_by_accuracy(client, tips, num_tips_selected):
+    tip_acc = []
+    for tip in tips:
+        _, acc = client.local_test(tip.model)
+        tip_acc.append((tip,acc))
+    tip_acc.sort(key=lambda x: x[1], reverse=True)
+    tips_selected = [ta[0] for ta in tip_acc[:num_tips_selected]]
+    return tips_selected

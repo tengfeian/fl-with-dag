@@ -12,21 +12,21 @@ def write_logs(logfile, loss_list,accuracy_list, sim_name):
 
 def record_tips_info(file, rand_num_tips_all_rounds, all_round_to_clients, seed):
     with open(file, mode="a") as file:
-        file.write("rand_num_tips_all_rounds with seed of "+str(seed) + ':\n')
-        json.dump(rand_num_tips_all_rounds, file, indent=4)
+        file.write("rand_num_tips_all_rounds with seed of "+str(seed) + ':\n[')
+        json.dump(rand_num_tips_all_rounds, file)
         file.write('\n')
         file.write("all_round_to_clients with seed of " + str(seed) + ':\n')
-        json.dump(all_round_to_clients, file, indent=4)
+        json.dump(all_round_to_clients, file)
         file.write('\n')
 
 def record_dag_info(dag, sim,label):
     with open(sim+"DAG_node_id_to_ref_ids.json", mode="a") as file:
         file.write(label + ':\n')
-        json.dump(dag.node_id_to_ref_ids, file, indent=4)
+        json.dump(dag.node_id_to_ref_ids, file)
         file.write('\n')
     with open(sim+"DAG_round_to_tip_gs.json", mode="a") as file:
         file.write(label + ':\n')
-        json.dump(dag.round_to_tip_gs, file, indent=4)
+        json.dump(dag.round_to_tip_gs, file)
         file.write('\n')
 
     round_to_tip_ids = {}
@@ -34,7 +34,7 @@ def record_dag_info(dag, sim,label):
         round_to_tip_ids[r] = [t.id for t in tips]
     with open(sim+"DAG_round_to_tips.json", mode="a") as file:
         file.write(label + ':\n')
-        json.dump(round_to_tip_ids, file, indent=4)
+        json.dump(round_to_tip_ids, file)
         file.write('\n')
 
     lineages = {}
@@ -48,19 +48,19 @@ def record_dag_info(dag, sim,label):
         node_creation_appearance[node_id] = [node.creation_time,node.appearance_time]
     with open(sim+"model_lineages.json", mode="a") as file:
         file.write(label + ':\n')
-        json.dump(lineages, file, indent=4)
+        json.dump(lineages, file)
         file.write('\n')
     with open(sim+"model_gs.json", mode="a") as file:
         file.write(label + ':\n')
-        json.dump(gs_all, file, indent=4)
+        json.dump(gs_all, file)
         file.write('\n')
     with open(sim+"model_cs.json", mode="a") as file:
         file.write(label + ':\n')
-        json.dump(cs_all, file, indent=4)
+        json.dump(cs_all, file)
         file.write('\n')
     with open(sim+"model_creation_appearance_time.json", mode="a") as file:
         file.write(label + ':\n')
-        json.dump(node_creation_appearance, file, indent=4)
+        json.dump(node_creation_appearance, file)
         file.write('\n')
 
 # Function to check if parameters are identical

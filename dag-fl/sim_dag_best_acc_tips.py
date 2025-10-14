@@ -10,7 +10,7 @@ from client import Client
 from DAGNode import DAGNode
 
 # Exp 4. DAG-FL alg.
-def run_dag_rand_tips(num_tips_rand_alg, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, device, all_round_to_clients, label):
+def run_dag_best_acc_tips(num_tips_selected, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, device, all_round_to_clients, label):
     # Initialize DAG, lineage, GS tables
     dag = DAG()
     genesis_net = copy.deepcopy(initial_net)
@@ -59,18 +59,15 @@ def run_dag_rand_tips(num_tips_rand_alg, fds, initial_net, dataset_name, batch_s
         # Clients train local model
         for c_id in client_ids_current_round:
             c = clients[c_id]
-            # virtual_final_gs = 0 # to compute choice score
             if round == 0:
                 selected_tips = [dag.genesis]
             if round > 0:
-                # # todo delete
-                # t_ids = []
-                # for t in tips:
-                #     t_ids.append(t.id)
-                # print(f"round:{round}, c_id: {c_id},tips: {t_ids}, client_ids_current_round:{client_ids_current_round}")
-
-                selected_tips = random.sample(tips, num_tips_rand_alg)
-                # selected_tips, virtual_final_gs = select_tips(tips, c_id, dag.genesis, round, observed_num_clients)
+                selected_tips = select_tips_by_accuracy(c, tips, num_tips_selected)
+                # todo delete
+                t_c_ids = []
+                for t in selected_tips:
+                    t_c_ids.append(t.client_id)
+                print(f"round:{round}, c_id: {c_id},tips from clients:{t_c_ids}")
 
                 c.update_local_model(selected_tips)
             c.local_train()
@@ -94,7 +91,6 @@ def run_dag_rand_tips(num_tips_rand_alg, fds, initial_net, dataset_name, batch_s
             loss_list.append(loss)
             accuracy_list.append(accuracy)
             print(f"[DAG Rand Tips alg.] accuracy list: {accuracy_list}")
-
 
     record_dag_info(dag, "dagRandTips_", label)
     return loss_list, accuracy_list

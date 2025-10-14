@@ -20,6 +20,11 @@ class Client:
         optim = get_optimizer(self.local_model)
         train(self.local_model, self.trainloader, optim, self.num_local_epochs, self.device)
 
+    # todo Discuss: use training dataset to test tips
+    def local_test(self, model):
+        loss, accuracy = test(model, self.trainloader, self.device)
+        return loss, accuracy
+
     def update_local_model(self, selected_tips):
         """
 
