@@ -90,9 +90,9 @@ def run_dag_best_acc_tips(num_tips_selected, fds, initial_net, dataset_name, bat
             loss, accuracy = test(global_model, testloader, device)
             loss_list.append(loss)
             accuracy_list.append(accuracy)
-            print(f"[DAG Rand Tips alg.] accuracy list: {accuracy_list}")
+            print(f"[DAGFL_BestAccTips_alg.] accuracy list: {accuracy_list}")
 
-    record_dag_info(dag, "dagRandTips_", label)
+    record_dag_info(dag, "dagBestAccTips_", label)
     return loss_list, accuracy_list
 
 def get_num_clients_observed(round,all_round_to_clients):

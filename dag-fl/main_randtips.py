@@ -20,7 +20,7 @@ parser.add_argument('--dataset_name', type=str, default='mnist', choices=['mnist
 
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--num_local_epoch', type=int, default=1)
-parser.add_argument('--num_global_round', type=int, default=100)
+parser.add_argument('--num_global_round', type=int, default=2)
 # parser.add_argument('--lr', type=float, default=0.01)
 # parser.add_argument('--momentum', type=float, default=0.9)
 parser.add_argument('--num_clients', type=int, default=100)
@@ -85,22 +85,22 @@ if __name__ == "__main__":
         all_round_to_clients.append(new_tips_current_round)
     record_tips_info(record_file, rand_num_tips_all_rounds, all_round_to_clients, seed)
 
-    # # # Run traditional synchronous FL, only for sync environment without drop-offs
+    # # Run traditional synchronous FL, only for sync environment without drop-offs
     # if min_ratio_presence == 1.0 :
     #     label = "[Sync_FL]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
     #     loss_list, accuracy_list = run_traditional_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE)
     #     write_logs(log_file,loss_list, accuracy_list, label)
-    #
+
     # # Run new DAG-FL alg.
     # label = "[DAGFL_GS_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
     # loss_list, accuracy_list = run_dag_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
     # write_logs(log_file,loss_list, accuracy_list, label)
-    #
-    # # Run random tip selection DAG-FL
-    # label = "[DAGFL_RandTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
-    # loss_list, accuracy_list = run_dag_rand_tips(num_tips_selected, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
-    # write_logs(log_file,loss_list, accuracy_list, label)
-    #
+
+    # Run random tip selection DAG-FL
+    label = "[DAGFL_RandTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
+    loss_list, accuracy_list = run_dag_rand_tips(num_tips_selected, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
+    write_logs(log_file,loss_list, accuracy_list, label)
+
     # # Run traditional Asynchronous FL
     # if min_ratio_presence < 1.0:
     #     label = "[Async_FL]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     # loss_list, accuracy_list = run_centralized_randomized_order(fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
     # write_logs(log_file,loss_list, accuracy_list, label)
 
-    # Run DAG-FL with tip selection based on test accuracy
-    label = "[DAGFL_BestAccTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
-    loss_list, accuracy_list = run_dag_best_acc_tips(num_tips_selected, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
-    write_logs(log_file,loss_list, accuracy_list, label)
+    # # Run DAG-FL with tip selection based on test accuracy
+    # label = "[DAGFL_BestAccTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
+    # loss_list, accuracy_list = run_dag_best_acc_tips(num_tips_selected, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
+    # write_logs(log_file,loss_list, accuracy_list, label)
