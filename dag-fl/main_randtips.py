@@ -97,7 +97,7 @@ if __name__ == "__main__":
     # write_logs(log_file,loss_list, accuracy_list, label)
 
     # Run random tip selection DAG-FL
-    label = "[DAGFL_RandTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
+    label = "[DAGFL_RandTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)+"-num_tips_selected_"+str(num_tips_selected)
     loss_list, accuracy_list = run_dag_rand_tips(num_tips_selected, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
     write_logs(log_file,loss_list, accuracy_list, label)
 
