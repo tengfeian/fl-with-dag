@@ -9,7 +9,6 @@ from sim_central_rand_order import run_centralized_randomized_order
 from sim_classic_seq import run_classic_sequential
 from sim_traditional_fl import run_traditional_fl
 from sim_dag_rand_tips import run_dag_rand_tips
-from sim_dag_best_acc_tips import run_dag_best_acc_tips
 
 parser = argparse.ArgumentParser(description='Federated Learning Simulations')
 # parser.add_argument('--file_name', type=str, default='fl')
