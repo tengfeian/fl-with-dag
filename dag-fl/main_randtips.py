@@ -3,7 +3,7 @@ import torch
 import random
 from nets import get_net
 from datafactory import split_dataset
-from sim_dag_fl import run_dag_fl
+from sim_dag_fl import run_dag_fl, run_dag_fl_sMSA_v2
 from utils import write_logs,record_tips_info
 from sim_central_rand_order import run_centralized_randomized_order
 from sim_classic_seq import run_classic_sequential
@@ -14,12 +14,14 @@ parser = argparse.ArgumentParser(description='Federated Learning Simulations')
 # parser.add_argument('--file_name', type=str, default='fl')
 parser.add_argument('--log_file', type=str, default='log.log')
 parser.add_argument('--record_file', type=str, default='records.log')
-parser.add_argument('--net', type=str, default='MLP_MNIST', choices=['MLP_MNIST', 'CNN_CIFFAR10'])
-parser.add_argument('--dataset_name', type=str, default='mnist', choices=['mnist', 'cifar10'])
+parser.add_argument('--net', type=str, default='CNN_CIFFAR10', choices=['MLP_MNIST', 'CNN_CIFFAR10'])
+parser.add_argument('--dataset_name', type=str, default='cifar10', choices=['mnist', 'cifar10'])
 
-parser.add_argument('--batch_size', type=int, default=32)
-parser.add_argument('--num_local_epoch', type=int, default=1)
-parser.add_argument('--num_global_round', type=int, default=2)
+parser.add_argument('--batch_size', type=int, default=16)
+# parser.add_argument('--batch_size', type=int, default=32) # 32 for MNIST, 16 for CIFAR10
+parser.add_argument('--num_local_epoch', type=int, default=5)
+# parser.add_argument('--num_local_epoch', type=int, default=1) # 1 for MNIST, 5 for CIFAR10
+parser.add_argument('--num_global_round', type=int, default=3)
 # parser.add_argument('--lr', type=float, default=0.01)
 # parser.add_argument('--momentum', type=float, default=0.9)
 parser.add_argument('--num_clients', type=int, default=100)
@@ -94,6 +96,15 @@ if __name__ == "__main__":
     # label = "[DAGFL_GS_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
     # loss_list, accuracy_list = run_dag_fl(fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
     # write_logs(log_file,loss_list, accuracy_list, label)
+
+    # # run_dag_fl_sMSA_v2
+    # label = "[DAGFL_GS_alg._sMSA_v2]-" + args.partition_type + "-num_local_epoch_" + str(
+    #     args.num_local_epoch) + "-" + args.dataset_name + "-num_clients_" + str(
+    #     args.num_clients) + "-min_ratio_presence_" + str(min_ratio_presence) + "-dirichlet_alpha_" + str(
+    #     dirichlet_alpha) + "-seed_" + str(seed)
+    # loss_list, accuracy_list = run_dag_fl_sMSA_v2(fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch,
+    #                                       num_clients, DEVICE, all_round_to_clients, label)
+    # write_logs(log_file, loss_list, accuracy_list, label)
 
     # Run random tip selection DAG-FL
     label = "[DAGFL_RandTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)+"-num_tips_selected_"+str(num_tips_selected)
