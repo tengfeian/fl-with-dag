@@ -43,8 +43,28 @@ class MLP_MNIST(nn.Module):
 #         x = self.fc3(x)
 #         return x
 
+# class CNN_CIFFAR10(nn.Module):
+#     def __init__(self) -> None:
+#         super(CNN_CIFFAR10, self).__init__()
+#         self.conv1 = nn.Conv2d(3, 6, 5)
+#         self.pool = nn.MaxPool2d(2, 2)
+#         self.conv2 = nn.Conv2d(6, 16, 5)
+#         self.fc1 = nn.Linear(16 * 5 * 5, 120)
+#         self.fc2 = nn.Linear(120, 84)
+#         self.fc3 = nn.Linear(84, 10)
+#
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
+#         x = self.pool(F.relu(self.conv1(x)))
+#         x = self.pool(F.relu(self.conv2(x)))
+#         x = x.view(-1, 16 * 5 * 5)
+#         # x = torch.flatten(x, 1)
+#         x = F.relu(self.fc1(x))
+#         x = F.relu(self.fc2(x))
+#         x = self.fc3(x)
+#         return x
+
 class CNN_CIFFAR10(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self):
         super(CNN_CIFFAR10, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
@@ -52,13 +72,17 @@ class CNN_CIFFAR10(nn.Module):
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
+        # Add Dropout layers (typical values: 0.25–0.5)
+        self.dropout1 = nn.Dropout(p=0.25)
+        self.dropout2 = nn.Dropout(p=0.5)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 16 * 5 * 5)
-        # x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
+        x = self.dropout1(x)  # Apply dropout after fc1
         x = F.relu(self.fc2(x))
+        x = self.dropout2(x)  # Apply dropout again
         x = self.fc3(x)
         return x

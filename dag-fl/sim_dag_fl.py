@@ -109,7 +109,7 @@ def get_num_clients_observed(round,all_round_to_clients):
 
     return len(clients_appeared)
 
-def run_dag_fl_sMSA_v2(clients, testloader, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, device, all_round_to_clients, label):
+def run_dag_fl_sMSA_v2(clients, testloader, initial_net, rounds, device, all_round_to_clients, label):
     # Initialize DAG, lineage, GS tables
     dag = DAG()
     genesis_net = copy.deepcopy(initial_net)

@@ -9,8 +9,11 @@ def get_optimizer(net):
     #     return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
     elif isinstance(net,CNN_CIFFAR10):
         # return torch.optim.Adam(net.parameters())
-        return torch.optim.SGD(net.parameters(), lr=0.01) # has overfit problem after about 50 epochs
-        # return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9) # has overfit problem after about 50 epochs
+        # return torch.optim.SGD(net.parameters(), lr=0.01) # has overfit problem after about 50 epochs
+        # return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4) # DAG-FL improves too slow
+        # return torch.optim.SGD(net.parameters(), lr=0.1, weight_decay=1e-4) # DAG-FL improves quick, but Centralized Learning starts overfit a little from 20th round
+        return torch.optim.SGD(net.parameters(), lr=0.05, weight_decay=1e-4)
+        # return torch.optim.SGD(net.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4) # Centralized Learning dropped from intial 24% to 20% of accuracy from 7th round
 
 def train(net, trainloader, optimizer, local_epochs, device):
     """Train the network on the training set."""
