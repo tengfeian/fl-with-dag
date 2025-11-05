@@ -8,7 +8,8 @@ def get_optimizer(net):
     # if isinstance(net,CNN_MNIST):
     #     return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
     elif isinstance(net,CNN_CIFFAR10):
-        return torch.optim.Adam(net.parameters())
+        # return torch.optim.Adam(net.parameters())
+        return torch.optim.SGD(net.parameters(), lr=0.01) # has overfit problem after about 50 epochs
         # return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9) # has overfit problem after about 50 epochs
 
 def train(net, trainloader, optimizer, local_epochs, device):

@@ -1,5 +1,6 @@
 import json
 import torch
+import copy
 
 def write_logs(logfile, loss_list,accuracy_list, sim_name):
     # ensemble_log = args.log_file
@@ -63,6 +64,12 @@ def record_dag_info(dag, sim,label):
         json.dump(node_creation_appearance, file)
         file.write('\n')
 
+# Initialize clients after the previous simulation
+def initilize_clients(initial_net, clients):
+    for c_id in clients:
+        local_model = copy.deepcopy(initial_net)
+        clients[c_id].upload_local_model(local_model)
+
 # Function to check if parameters are identical
 def models_equal(model_a, model_b):
     state_a = model_a.state_dict()
@@ -79,3 +86,4 @@ def models_equal(model_a, model_b):
             return False
 
     return True
+

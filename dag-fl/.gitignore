@@ -2,3 +2,4 @@
 simulations
 *.json
 *.out
+__pycache__

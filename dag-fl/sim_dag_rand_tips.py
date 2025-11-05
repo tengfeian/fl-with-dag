@@ -3,28 +3,31 @@ from learning import train, test, get_optimizer
 from dag_fl_alg import *
 from aggregation import *
 from dag_fl_select_tips import *
-from utils import record_dag_info
+from utils import record_dag_info, initilize_clients
 
 from DAG import DAG
 from client import Client
 from DAGNode import DAGNode
 
 # Exp 4. DAG-FL alg.
-def run_dag_rand_tips(num_tips_rand_alg, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, device, all_round_to_clients, label):
+# def run_dag_rand_tips(clients, testloader, num_tips_rand_alg, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, device, all_round_to_clients, label):
+def run_dag_rand_tips(clients, testloader, num_tip, initial_net, rounds, device, all_round_to_clients, label):
     # Initialize DAG, lineage, GS tables
     dag = DAG()
     genesis_net = copy.deepcopy(initial_net)
     genesis = DAGNode(node_id=0, model=genesis_net, client_id=-1, creation_time=0, ref_nodes=[])
     dag.init(genesis)
     # Initialize clients
-    clients = {}
-    for client_id in range(num_clients):
-        local_model = copy.deepcopy(genesis.model)
-        clients[client_id] = Client(client_id, local_model,num_local_epoch, device)
-        clients[client_id].trainloader = get_trainloaders(fds, client_id, dataset_name, batch_size)
+    # clients = {}
+    # for client_id in range(num_clients):
+    #     local_model = copy.deepcopy(genesis.model)
+    #     clients[client_id] = Client(client_id, local_model,num_local_epoch, device)
+    #     clients[client_id].trainloader = get_trainloaders(fds, client_id, dataset_name, batch_size)
+    initilize_clients(initial_net, clients)
+
 
     # For global model testing
-    testloader = get_testloader(fds, dataset_name, batch_size)
+    # testloader = get_testloader(fds, dataset_name, batch_size)
     loss_list, accuracy_list = [],[]
 
     # In each round, new tips present in DAG, the clients who proposed these tips start to train new model
@@ -69,7 +72,7 @@ def run_dag_rand_tips(num_tips_rand_alg, fds, initial_net, dataset_name, batch_s
                 #     t_ids.append(t.id)
                 # print(f"round:{round}, c_id: {c_id},tips: {t_ids}, client_ids_current_round:{client_ids_current_round}")
 
-                selected_tips = random.sample(tips, num_tips_rand_alg)
+                selected_tips = random.sample(tips, num_tip)
                 # selected_tips, virtual_final_gs = select_tips(tips, c_id, dag.genesis, round, observed_num_clients)
 
                 c.update_local_model(selected_tips)

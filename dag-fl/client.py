@@ -35,3 +35,6 @@ class Client:
         for tip in selected_tips:
             selected_models.append(tip.model.to(self.device))
         self.local_model = fedAvg(selected_models)
+
+    def upload_local_model(self,model):
+        self.local_model = copy.deepcopy(model)
