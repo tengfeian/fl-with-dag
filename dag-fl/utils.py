@@ -3,13 +3,17 @@ import torch
 import copy
 
 def write_logs(logfile, loss_list,accuracy_list, sim_name):
-    # ensemble_log = args.log_file
     with open(logfile, mode="a") as file:
         file.write(sim_name+'\n')
         file.write(",".join(str(v) for v in accuracy_list))
         file.write('\n')
         file.write(",".join(str(v) for v in loss_list))
         file.write('\n')
+
+def write_timer_log(logfile, elapsed_time, sim_name):
+    with open(logfile, mode="a") as file:
+        file.write(sim_name+'\n')
+        file.write(str(elapsed_time)+'hours \n')
 
 def record_tips_info(file, rand_num_tips_all_rounds, all_round_to_clients, seed):
     with open(file, mode="a") as file:

@@ -2,10 +2,11 @@ import argparse
 import torch
 import random
 import copy
+import time
 from nets import get_net
 from datafactory import split_dataset
 from sim_dag_fl import run_dag_fl, run_dag_fl_sMSA_v2
-from utils import write_logs,record_tips_info
+from utils import write_logs, record_tips_info, write_timer_log
 from sim_central_rand_order import run_centralized_randomized_order
 from sim_classic_seq import run_classic_sequential
 from sim_traditional_fl import run_traditional_fl
@@ -21,18 +22,22 @@ parser = argparse.ArgumentParser(description='Federated Learning Simulations')
 # parser.add_argument('--file_name', type=str, default='fl')
 parser.add_argument('--log_file', type=str, default='log.log')
 parser.add_argument('--record_file', type=str, default='records.log')
-parser.add_argument('--net', type=str, default='CNN_CIFFAR10', choices=['MLP_MNIST', 'CNN_CIFFAR10'])
-parser.add_argument('--dataset_name', type=str, default='cifar10', choices=['mnist', 'cifar10'])
+parser.add_argument('--timer_file', type=str, default='timer.log')
+parser.add_argument('--net', type=str, default='CNN_SVHN',
+                    choices=['MLP_MNIST', 'CNN_SVHN', 'CNN_CIFFAR10'])
+parser.add_argument('--dataset_name', type=str, default='svhn',
+                    choices=['mnist', 'svhn', 'cifar10'])
 
-parser.add_argument('--batch_size', type=int, default=32)
+parser.add_argument('--batch_size', type=int, default=64)
 # parser.add_argument('--batch_size', type=int, default=32) # 32 for MNIST, 16 for CIFAR10
-parser.add_argument('--num_local_epoch', type=int, default=1)
+parser.add_argument('--num_local_epoch', type=int, default=2)
 # parser.add_argument('--num_local_epoch', type=int, default=1) # 1 for MNIST, 5 for CIFAR10
 parser.add_argument('--num_global_round', type=int, default=3)
 # parser.add_argument('--lr', type=float, default=0.01)
 # parser.add_argument('--momentum', type=float, default=0.9)
 parser.add_argument('--num_clients', type=int, default=100)
-parser.add_argument('--partition_type', type=str, default="dirichlet", choices=['iid', 'dirichlet'])
+parser.add_argument('--partition_type', type=str,
+                    default="dirichlet", choices=['iid', 'dirichlet'])
 parser.add_argument('--dirichlet_alpha', type=float, default=0.1)
 parser.add_argument('--min_ratio_presence', type=float, default=0.7)
 # Note: some seed with dirichlet_alpha=0.1 will cause some client has 0 samples, such as :
@@ -46,9 +51,11 @@ parser.add_argument('--seed', type=int, default=1821)
 # parser.add_argument('--fraction_fit', type=float, default=1.0)
 # parser.add_argument('--fraction_evaluate', type=float, default=1.0)
 
-num_tips_selected_list = [5,4,3,2]
+num_tips_selected_list = [5, 4, 3, 2]
 
 if __name__ == "__main__":
+    start_main = time.time()
+
     args = parser.parse_args()
     dataset_name = args.dataset_name
     partition_type = args.partition_type
@@ -63,6 +70,7 @@ if __name__ == "__main__":
 
     log_file = args.log_file
     record_file = args.record_file
+    timer_file = args.timer_file
     # DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
     DEVICE = torch.device(
         "cuda" if torch.cuda.is_available()
@@ -74,7 +82,8 @@ if __name__ == "__main__":
     random.seed(seed)
     torch.manual_seed(seed)
     # np.random.seed(seed)
-    fds = split_dataset(dataset_name, partition_type, num_clients, dirichlet_alpha, seed)
+    fds = split_dataset(dataset_name, partition_type,
+                        num_clients, dirichlet_alpha, seed)
     # record_partition_metadata(fds.partion_metadata, dataset_name, seed)
 
     """
@@ -89,35 +98,101 @@ if __name__ == "__main__":
             num_tips_current_round = num_clients
             new_tips_current_round = list(range(num_clients))
         else:
-            num_tips_current_round = random.randint(min_num_new_tips, num_clients)
-            new_tips_current_round = random.sample(clients_list, num_tips_current_round)
+            num_tips_current_round = random.randint(
+                min_num_new_tips, num_clients)
+            new_tips_current_round = random.sample(
+                clients_list, num_tips_current_round)
         rand_num_tips_all_rounds.append(num_tips_current_round)
         all_round_to_clients.append(new_tips_current_round)
-    record_tips_info(record_file, rand_num_tips_all_rounds, all_round_to_clients, seed)
+    record_tips_info(record_file, rand_num_tips_all_rounds,
+                     all_round_to_clients, seed)
 
     # Initialize clients
     clients = {}
     for client_id in range(num_clients):
         local_model = copy.deepcopy(initial_net)
-        clients[client_id] = Client(client_id, local_model, num_local_epoch, DEVICE)
-        clients[client_id].trainloader = get_trainloaders(fds, client_id, dataset_name, batch_size)
+        clients[client_id] = Client(
+            client_id, local_model, num_local_epoch, DEVICE)
+        clients[client_id].trainloader = get_trainloaders(
+            fds, client_id, dataset_name, batch_size)
 
     # For global model testing
     testloader = get_testloader(fds, dataset_name, batch_size)
 
     # Run traditional synchronous FL, only for sync environment without drop-offs
-    if min_ratio_presence == 1.0 :
-        label = "[Sync_FL]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
+    if min_ratio_presence == 1.0:
+        start = time.time()
+        label = "[Sync_FL]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(
+            args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
         # loss_list, accuracy_list = run_traditional_fl(clients, testloader, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE)
-        loss_list, accuracy_list = run_traditional_fl(clients, testloader, initial_net, rounds, num_clients, DEVICE)
-        write_logs(log_file,loss_list, accuracy_list, label)
+        loss_list, accuracy_list = run_traditional_fl(
+            clients, testloader, initial_net, rounds, num_clients, DEVICE)
+        write_logs(log_file, loss_list, accuracy_list, label)
+        # Write time consumption
+        end = time.time()
+        elapsed_time = (end - start) / 3600
+        write_timer_log(timer_file, elapsed_time, label)
+    # Run traditional Asynchronous FL
+    if min_ratio_presence < 1.0:
+        start = time.time()
+        label = "[Async_FL]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(
+            args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
+        # loss_list, accuracy_list = run_traditional_fl(clients, testloader, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
+        loss_list, accuracy_list = run_traditional_fl(
+            clients, testloader, initial_net, rounds, num_clients, DEVICE, all_round_to_clients)
+        write_logs(log_file, loss_list, accuracy_list, label)
+        # Write time consumption
+        end = time.time()
+        elapsed_time = (end - start) / 3600
+        write_timer_log(timer_file, elapsed_time, label)
+
+    # Run classic fully centralized sequential training
+    start = time.time()
+    label = "[Central_Sequential]-" + args.partition_type + "-num_local_epoch_" + str(
+        args.num_local_epoch) + "-" + args.dataset_name + "-num_clients_" + str(
+        args.num_clients) + "-min_ratio_presence_" + str(min_ratio_presence) + "-dirichlet_alpha_" + str(
+        dirichlet_alpha) + "-seed_" + str(seed)
+    # loss_list, accuracy_list = run_classic_sequential(clients, testloader, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
+    loss_list, accuracy_list = run_classic_sequential(clients, testloader, initial_net, rounds, num_local_epoch,
+                                                      num_clients, DEVICE, all_round_to_clients)
+    write_logs(log_file, loss_list, accuracy_list, label)
+    # Write time consumption
+    end = time.time()
+    elapsed_time = (end - start) / 3600
+    write_timer_log(timer_file, elapsed_time, label)
+
+    # Run random tip selection DAG-FL
+    for num_tip in num_tips_selected_list:
+        start = time.time()
+        label = "[DAGFL_RandTips_alg.]-" + args.partition_type + "-num_local_epoch_" + str(
+            args.num_local_epoch) + "-" + args.dataset_name + "-num_clients_" + str(
+            args.num_clients) + "-min_ratio_presence_" + str(min_ratio_presence) + "-dirichlet_alpha_" + str(
+            dirichlet_alpha) + "-seed_" + str(seed) + "-num_tips_selected_" + str(num_tip)
+        # loss_list, accuracy_list = run_dag_rand_tips(clients, testloader, num_tip, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
+        loss_list, accuracy_list = run_dag_rand_tips(clients, testloader, num_tip, initial_net, rounds, DEVICE,
+                                                     all_round_to_clients, label)
+        write_logs(log_file, loss_list, accuracy_list, label)
+        # Write time consumption
+        end = time.time()
+        elapsed_time = (end - start) / 3600
+        write_timer_log(timer_file, elapsed_time, label)
+
 
     # Run new DAG-FL alg.
-    label = "[DAGFL_GS_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
-    loss_list, accuracy_list = run_dag_fl(clients, testloader, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
-    write_logs(log_file,loss_list, accuracy_list, label)
+    start = time.time()
+    label = "[DAGFL_GS_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(
+        args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
+    loss_list, accuracy_list = run_dag_fl(clients, testloader, initial_net, dataset_name,
+                                          batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
+    write_logs(log_file, loss_list, accuracy_list, label)
+    # Write time consumption
+    end = time.time()
+    elapsed_time = (end - start) / 3600
+    write_timer_log(timer_file, elapsed_time, label)
 
-    # # run_dag_fl_sMSA_v2
+
+    # # SKIP run_dag_fl_sMSA_v2
+    # start = time.time()
     # label = "[DAGFL_GS_alg._sMSA_v2]-" + args.partition_type + "-num_local_epoch_" + str(
     #     args.num_local_epoch) + "-" + args.dataset_name + "-num_clients_" + str(
     #     args.num_clients) + "-min_ratio_presence_" + str(min_ratio_presence) + "-dirichlet_alpha_" + str(
@@ -125,34 +200,41 @@ if __name__ == "__main__":
     # loss_list, accuracy_list = run_dag_fl_sMSA_v2(fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch,
     #                                       num_clients, DEVICE, all_round_to_clients, label)
     # write_logs(log_file, loss_list, accuracy_list, label)
+    # # Write time consumption
+    # end = time.time()
+    # elapsed_time = (end - start) / 3600
+    # write_timer_log(timer_file, elapsed_time, label)
 
-    # Run traditional Asynchronous FL
-    if min_ratio_presence < 1.0:
-        label = "[Async_FL]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
-        # loss_list, accuracy_list = run_traditional_fl(clients, testloader, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
-        loss_list, accuracy_list = run_traditional_fl(clients, testloader, initial_net, rounds, num_clients, DEVICE, all_round_to_clients)
-        write_logs(log_file,loss_list, accuracy_list, label)
-
-    # Run classic fully centralized sequential training
-    label = "[Central_Sequential]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
-    # loss_list, accuracy_list = run_classic_sequential(clients, testloader, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
-    loss_list, accuracy_list = run_classic_sequential(clients, testloader, initial_net, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
-    write_logs(log_file,loss_list, accuracy_list, label)
-
-    # Run random tip selection DAG-FL
-    for num_tip in num_tips_selected_list:
-        label = "[DAGFL_RandTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)+"-num_tips_selected_"+str(num_tip)
-        # loss_list, accuracy_list = run_dag_rand_tips(clients, testloader, num_tip, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
-        loss_list, accuracy_list = run_dag_rand_tips(clients, testloader, num_tip, initial_net, rounds, DEVICE, all_round_to_clients, label)
-        write_logs(log_file,loss_list, accuracy_list, label)
 
     # Run centralized training with randomized order
-    label = "[Central_RandOrder]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
+    start = time.time()
+    label = "[Central_RandOrder]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(
+        args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
     # loss_list, accuracy_list = run_centralized_randomized_order(clients, testloader, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
-    loss_list, accuracy_list = run_centralized_randomized_order(clients, testloader, initial_net, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
-    write_logs(log_file,loss_list, accuracy_list, label)
+    loss_list, accuracy_list = run_centralized_randomized_order(
+        clients, testloader, initial_net, num_local_epoch, num_clients, DEVICE, all_round_to_clients)
+    write_logs(log_file, loss_list, accuracy_list, label)
+    # Write time consumption
+    end = time.time()
+    elapsed_time = (end - start) / 3600
+    write_timer_log(timer_file, elapsed_time, label)
+
 
     # # Run DAG-FL with tip selection based on test accuracy
+    # start = time.time()
     # label = "[DAGFL_BestAccTips_alg.]-"+args.partition_type+"-num_local_epoch_"+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
     # loss_list, accuracy_list = run_dag_best_acc_tips(num_tips_selected, fds, initial_net, dataset_name, batch_size, rounds, num_local_epoch, num_clients, DEVICE, all_round_to_clients, label)
     # write_logs(log_file,loss_list, accuracy_list, label)
+    # Write time consumption
+    # end = time.time()
+    # elapsed_time = (end - start) / 3600
+    # write_timer_log(timer_file, elapsed_time, label)
+
+
+    # Write time consumption
+    label = "[main]-num_local_epoch_"+args.partition_type+str(args.num_local_epoch)+"-"+args.dataset_name+"-num_clients_"+str(
+        args.num_clients)+"-min_ratio_presence_"+str(min_ratio_presence)+"-dirichlet_alpha_"+str(dirichlet_alpha)+"-seed_"+str(seed)
+    end_main = time.time()
+    elapsed_time = (end_main - start_main) / 3600
+    write_timer_log(timer_file, elapsed_time, label)
+

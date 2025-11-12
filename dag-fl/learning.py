@@ -2,15 +2,29 @@ import torch
 from nets import *
 from collections import OrderedDict
 
+
 def get_optimizer(net):
-    if isinstance(net,MLP_MNIST):
+    if isinstance(net, MLP_MNIST):
         return torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
     # if isinstance(net,CNN_MNIST):
     #     return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
-    elif isinstance(net,CNN_CIFFAR10):
+    elif isinstance(net, CNN_SVHN):
+        # return torch.optim.SGD(net.parameters(), lr=0.05, momentum=0.9, weight_decay=1e-4) # keep at 9% for centralized sequential at non-iid with alpha=0.1, drop-off=0.75
+        # return torch.optim.SGD(net.parameters(), lr=0.05, momentum=0.9) #  keep at 9% for centralized sequential at non-iid with alpha=0.1, drop-off=0.75
+        # return torch.optim.SGD(net.parameters(), lr=0.05) # centralized sequential converges well at non-iid
+        # acceptable with nonIID
+        return torch.optim.SGD(net.parameters(), lr=0.1)
+        # return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4) # centralized fluctuates a little, Randtips-5 convergers slowly
+        # return torch.optim.Adam(net.parameters()) # centralized sequential straggles at initial, Randtips-5 behaves worse than SGD with lr=0.1
+
+    elif isinstance(net, CNN_CIFFAR10):
         # return torch.optim.Adam(net.parameters())
-        return torch.optim.SGD(net.parameters(), lr=0.01) # has overfit problem after about 50 epochs
-        # return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9) # has overfit problem after about 50 epochs
+        # return torch.optim.SGD(net.parameters(), lr=0.01) # has overfit problem after about 50 epochs
+        # return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4) # DAG-FL improves too slow
+        # return torch.optim.SGD(net.parameters(), lr=0.1, weight_decay=1e-4) # DAG-FL improves quick, but Centralized Learning starts overfit a little from 20th round
+        return torch.optim.SGD(net.parameters(), lr=0.05, weight_decay=1e-4)
+        # return torch.optim.SGD(net.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4) # Centralized Learning dropped from intial 24% to 20% of accuracy from 7th round
+
 
 def train(net, trainloader, optimizer, local_epochs, device):
     """Train the network on the training set."""
@@ -19,16 +33,18 @@ def train(net, trainloader, optimizer, local_epochs, device):
     net.train()
     for epoch in range(local_epochs):
         for batch in trainloader:
-            if isinstance(net, MLP_MNIST):
-            # if isinstance(net, CNN_MNIST):
+            if isinstance(net, MLP_MNIST) or isinstance(net, CNN_SVHN):
+                # if isinstance(net, CNN_MNIST):
                 key_name = "image"
             elif isinstance(net, CNN_CIFFAR10):
                 key_name = "img"
-            images, labels = batch[key_name].to(device), batch["label"].to(device)
+            images, labels = batch[key_name].to(
+                device), batch["label"].to(device)
             optimizer.zero_grad()
             loss = criterion(net(images), labels)
             loss.backward()
             optimizer.step()
+
 
 def test(net, testloader, device):
     """Validate the network on the entire test set."""
@@ -38,12 +54,12 @@ def test(net, testloader, device):
     net.eval()
     with torch.no_grad():
         for batch in testloader:
-            if isinstance(net, MLP_MNIST):
-            # if isinstance(net, CNN_MNIST):
+            if isinstance(net, MLP_MNIST) or isinstance(net, CNN_SVHN):
                 key_name = "image"
             elif isinstance(net, CNN_CIFFAR10):
                 key_name = "img"
-            images, labels = batch[key_name].to(device), batch["label"].to(device)
+            images, labels = batch[key_name].to(
+                device), batch["label"].to(device)
             outputs = net(images)
             loss += criterion(outputs, labels).item()
             _, predicted = torch.max(outputs.data, 1)
@@ -52,11 +68,12 @@ def test(net, testloader, device):
     accuracy = correct / len(testloader.dataset)
     return losses, accuracy
 
+
 def get_weights(net):
     return [val.cpu().numpy() for _, val in net.state_dict().items()]
+
 
 def set_weights(net, parameters):
     params_dict = zip(net.state_dict().keys(), parameters)
     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
     net.load_state_dict(state_dict, strict=True)
-

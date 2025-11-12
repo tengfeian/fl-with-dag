@@ -1,5 +1,5 @@
 from torch.utils.data import DataLoader
-from torchvision.transforms import ToTensor, Normalize, Compose
+from torchvision.transforms import ToTensor, Normalize, Compose,Resize
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import IidPartitioner, DirichletPartitioner
 
@@ -23,6 +23,9 @@ def split_dataset(dataset_name, partition_type, num_clients, dirichlet_alpha, se
     elif dataset_name == 'cifar10':
         # return load_dataset("cifar10")
         return FederatedDataset(dataset="uoft-cs/cifar10", partitioners={"train": partitioner})
+    elif dataset_name == 'svhn':
+        # return load_dataset("cifar10")
+        return FederatedDataset(dataset="svhn",subset="cropped_digits",partitioners={"train": partitioner})
     else:
         raise NotImplementedError("Dataset {} not implemented".format(dataset_name))
 
@@ -31,11 +34,14 @@ def get_transforms(dataset_name):
         pytorch_transforms = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
     elif dataset_name == 'cifar10':
         pytorch_transforms = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    elif dataset_name == 'svhn':
+        pytorch_transforms = Compose([ToTensor(),Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        # pytorch_transforms = Compose([Resize([28, 28]),ToTensor(),Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     else:
         pytorch_transforms = None
     # Prepare transformation functions
     def apply_transforms(batch):
-        if dataset_name == 'mnist':
+        if dataset_name == 'mnist' or dataset_name == 'svhn':
             key_name = "image"
         elif dataset_name == 'cifar10':
             key_name = "img"

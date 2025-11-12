@@ -34,7 +34,7 @@ def run_centralized_randomized_order(clients, testloader, initial_net, num_local
         cnt += 1
         # if cnt>0 and cnt%num_clients == 0:
         if cnt == len(all_round_to_clients[r]):
-            print(f"[Centralized training with randomized order] Training round {cnt//num_clients} ...")
+            print(f"[Centralized training with randomized order] Training round {r} ...")
             # Evaluate model on the test set
             loss, accuracy = test(net, testloader, device)
             loss_list.append(loss)
